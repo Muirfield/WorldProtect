@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/alejandroliu/pocketmine-plugins/master/Media/WorldProtect-icon.png" style="width:64px;height:64px" width="64" height="64"/>
+<img src="https://raw.githubusercontent.com/Muirfield/WorldProtect/master/media/WorldProtect-icon.png" style="width:64px;height:64px" width="64" height="64"/>
 
 <!-- meta:Categories = Anti-Griefing -->
 <!-- meta:PluginAccess = Commands, Data Saving, World Editing -->
@@ -12,7 +12,6 @@
 - OptionalPlugins: 
 - Categories: Anti-Griefing 
 - Plugin Access: Commands, Data Saving, World Editing 
-- WebSite: https://github.com/alejandroliu/pocketmine-plugins/tree/master/WorldProtect
 
 <!-- end-include -->
 
@@ -32,11 +31,6 @@ _NOTE:_
 
 This documentation was last updated for version **2.2.0**.
 
-Please go to
-[github](https://github.com/alejandroliu/pocketmine-plugins/tree/master/WorldProtect)
-for the most up-to-date documentation.
-
-You can also download this plugin from this [page](https://github.com/alejandroliu/pocketmine-plugins/releases/tag/WorldProtect-2.2.0).
 
 <!-- end-include -->
 
