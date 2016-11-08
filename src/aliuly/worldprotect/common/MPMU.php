@@ -16,7 +16,7 @@ abstract class MPMU {
 	/** @var str[] $items Nice names for items */
 	static protected $items = [];
 	/** @const str VERSION plugin version string */
-	const VERSION = "0.1.0";
+	const VERSION = "1.1.1";
 
 	/**
 	 * libcommon library version.  If a version is provided it will check
@@ -75,28 +75,6 @@ abstract class MPMU {
 		}
 		if (intval($api) != intval($version)) return 0;
 		return version_compare($api,$version) >= 0;
-	}
-	/**
-	 * Given an pocketmine\item\Item object, it returns a friendly name
-	 * for it.
-	 *
-	 * @param Item item
-	 * @return str
-	 */
-	static public function itemName(Item $item) {
-		$n = $item->getName();
-		if ($n != "Unknown") return $n;
-		if (count(self::$items) == 0) {
-			$constants = array_keys((new \ReflectionClass("pocketmine\\item\\Item"))->getConstants());
-			foreach ($constants as $constant) {
-				$id = constant("pocketmine\\item\\Item::$constant");
-				$constant = str_replace("_", " ", $constant);
-				self::$items[$id] = $constant;
-			}
-		}
-		if (isset(self::$items[$item->getId()]))
-			return self::$items[$item->getId()];
-		return $n;
 	}
 	/**
 	 * Returns a localized string for the gamemode
@@ -227,6 +205,19 @@ abstract class MPMU {
 		$newCmd->setExecutor($executor);
 		$cmdMap = $plugin->getServer()->getCommandMap();
 		$cmdMap->register($plugin->getDescription()->getName(),$newCmd);
+	}
+	/**
+	 * Unregisters a command
+   * @param Server|Plugin $obj - Access path to server instance
+	 * @param str $cmd - Command name to remove
+	 */
+	static public function rmCommand($srv, $cmd) {
+		$cmdMap = $srv->getCommandMap();
+		$oldCmd = $cmdMap->getCommand($cmd);
+		if ($oldCmd === null) return false;
+		$oldCmd->setLabel($cmd."_disabled");
+		$oldCmd->unregister($cmdMap);
+		return true;
 	}
 	/**
 	 * Send a PopUp, but takes care of checking if there are some

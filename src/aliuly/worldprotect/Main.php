@@ -22,12 +22,13 @@ use pocketmine\utils\TextFormat;
 use pocketmine\level\Level;
 use pocketmine\event\level\LevelLoadEvent;
 use pocketmine\event\level\LevelUnloadEvent;
+use pocketmine\event\Listener;
 use pocketmine\Player;
 use aliuly\worldprotect\common\mc;
 use aliuly\worldprotect\common\MPMU;
 use aliuly\worldprotect\common\BasicPlugin;
 
-class Main extends BasicPlugin implements CommandExecutor {
+class Main extends BasicPlugin implements CommandExecutor,Listener {
 	protected $wcfg;
 	const SPAM_DELAY = 5;
 
@@ -50,10 +51,13 @@ class Main extends BasicPlugin implements CommandExecutor {
 			"motd" => WpMotdMgr::defaults(),
 		],mc::_("/%s [world] %s %s"));
 		$this->modules[] = new WpList($this);
+
 		// Make sure that loaded worlds are inded loaded...
 		foreach ($this->getServer()->getLevels() as $lv) {
 			$this->loadCfg($lv);
 		}
+		$this->getServer()->getPluginManager()->registerEvents($this, $this);
+
 	}
 
 	//////////////////////////////////////////////////////////////////////
@@ -62,6 +66,7 @@ class Main extends BasicPlugin implements CommandExecutor {
 	//
 	//////////////////////////////////////////////////////////////////////
 	public function loadCfg($world) {
+
 		if ($world instanceof Level) $world = $world->getName();
 		if (isset($this->wcfg[$world])) return true; // world is already loaded!
 		if (!$this->getServer()->isLevelGenerated($world)) return false;
@@ -93,6 +98,7 @@ class Main extends BasicPlugin implements CommandExecutor {
 		return true;
 	}
 	public function saveCfg($world) {
+
 		if ($world instanceof Level) $world = $world->getName();
 		if (!isset($this->wcfg[$world])) return false; // Nothing to save!
 		if (!$this->getServer()->isLevelGenerated($world)) return false;
@@ -114,6 +120,7 @@ class Main extends BasicPlugin implements CommandExecutor {
 		return true;
 	}
 	public function unloadCfg($world) {
+
 		if ($world instanceof Level) $world = $world->getName();
 		if (isset($this->wcfg[$world])) unset($this->wcfg[$world]);
 		foreach ($this->modules as $i=>$mod) {
@@ -233,6 +240,7 @@ class Main extends BasicPlugin implements CommandExecutor {
 		if (!isset($this->wcfg[$world])) return true;
 		if (!isset($this->wcfg[$world]["auth"])) return true;
 		if (!count($this->wcfg[$world]["auth"])) return true;
+
 		$iusr = strtolower($c->getName());
 		if (isset($this->wcfg[$world][$iusr])) return true;
 		$c->sendMessage(mc::_("[WP] You are not allowed to do this"));

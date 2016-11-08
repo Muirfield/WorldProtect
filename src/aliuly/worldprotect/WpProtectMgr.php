@@ -76,6 +76,7 @@ class WpProtectMgr extends BaseWp implements Listener {
 				return true;
 			case "rm":
 				if (!count($args)) return false;
+
 				foreach ($args as $i) {
 					$iusr = strtolower($i);
 					if ($this->owner->authCheck($world,$iusr)) {
