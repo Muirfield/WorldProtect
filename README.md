@@ -218,6 +218,7 @@ If `true` the feature is enabled.  if `false` the feature is disabled.
 #### motd
 
 *  ticks: line delay when showing multi-line motd texts.
+*  auto-motd: Automatically shows motd when entering world
 
 
 ### Permission Nodes
@@ -279,6 +280,11 @@ for sample files.
 
 # Changes
 
+* 2.0.3: Minor bug fix
+  * Fixed bug: Configuration is not applied when reloading
+* 2.0.2: Feature request
+  * Feature Request(@Nifo2000): Option to control if MOTD is shown
+    automatically
 * 2.0.1: critical bug fix
   * Fixed a crash
   * Can now add to auth list when players are off-line
