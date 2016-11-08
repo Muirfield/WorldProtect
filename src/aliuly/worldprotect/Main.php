@@ -51,6 +51,7 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 			"motd" => WpMotdMgr::defaults(),
 		],mc::_("/%s [world] %s %s"));
 		$this->modules[] = new WpList($this);
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 
 		// Make sure that loaded worlds are inded loaded...
 		foreach ($this->getServer()->getLevels() as $lv) {
@@ -66,6 +67,7 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 	//
 	//////////////////////////////////////////////////////////////////////
 	public function loadCfg($world) {
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 
 		if ($world instanceof Level) $world = $world->getName();
 		if (isset($this->wcfg[$world])) return true; // world is already loaded!
@@ -98,6 +100,7 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 		return true;
 	}
 	public function saveCfg($world) {
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 
 		if ($world instanceof Level) $world = $world->getName();
 		if (!isset($this->wcfg[$world])) return false; // Nothing to save!
@@ -120,6 +123,7 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 		return true;
 	}
 	public function unloadCfg($world) {
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 
 		if ($world instanceof Level) $world = $world->getName();
 		if (isset($this->wcfg[$world])) unset($this->wcfg[$world]);
@@ -190,9 +194,11 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 	//
 	//////////////////////////////////////////////////////////////////////
 	public function onLevelLoad(LevelLoadEvent $e) {
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 		$this->loadCfg($e->getLevel());
 	}
 	public function onLevelUnload(LevelUnloadEvent $e) {
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 		$this->unloadCfg($e->getLevel());
 	}
 
@@ -220,7 +226,9 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 			$sender->sendMessage(mc::_("[WP] Must specify a world"));
 			return false;
 		}
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 		if (!$this->isAuth($sender,$world)) return true;
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 		return $this->dispatchSCmd($sender,$cmd,$args,$world);
 	}
 	public function canPlaceBreakBlock(Player $c,$world) {
@@ -240,6 +248,7 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 		if (!isset($this->wcfg[$world])) return true;
 		if (!isset($this->wcfg[$world]["auth"])) return true;
 		if (!count($this->wcfg[$world]["auth"])) return true;
+		echo __METHOD__.",".__LINE__."\n";//##DEBUG
 
 		$iusr = strtolower($c->getName());
 		if (isset($this->wcfg[$world][$iusr])) return true;
@@ -267,7 +276,7 @@ class Main extends BasicPlugin implements CommandExecutor,Listener {
 		}
 	}
 	public function msg($pl,$txt) {
-		if (MPMU::apiVersion("1.12.0")) {
+		if (MPMU::apiVersion("2.0.0")) {
 			$pl->sendTip($txt);
 			return;
 		}

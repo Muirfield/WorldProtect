@@ -62,11 +62,13 @@ class GmMgr extends BaseWp implements Listener {
 	 * @priority HIGHEST
 	 */
 	public function onTeleport(EntityTeleportEvent $ev){
+		//echo __METHOD__.",".__LINE__."\n"; //##DEBUG
 		if ($ev->isCancelled()) return;
 		$pl = $ev->getEntity();
 		if (!($pl instanceof Player)) return;
 		if ($pl->hasPermission("wp.cmd.gm.exempt")) return;
 
+		//echo __METHOD__.",".__LINE__."\n"; //##DEBUG
 		$world = $ev->getTo()->getLevel();
 		if (!$world) {
 			$world = $pl->getLevel();

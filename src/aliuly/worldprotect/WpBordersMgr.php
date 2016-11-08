@@ -133,6 +133,7 @@ class WpBordersMgr extends BaseWp implements Listener {
 			if (!$from->getLevel()) return; // Can't determine the level at all!
 			$world = $from->getLevel()->getName();
 		}
+		//echo __METHOD__.",".__LINE__."world=$world\n"; //##DEBUG
 		if ($this->checkMove($world,$to->getX(),$to->getZ())) return;
 		$this->owner->msg($pl,mc::_("You are teleporting outside the world"));
 		$ev->setCancelled();
