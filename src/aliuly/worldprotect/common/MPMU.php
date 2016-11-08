@@ -5,7 +5,6 @@ use pocketmine\utils\TextFormat;
 use pocketmine\utils\MainLogger;
 use pocketmine\command\CommandSender;
 use pocketmine\Player;
-use pocketmine\command\PluginCommand;
 
 use aliuly\worldprotect\common\mc;
 
@@ -16,7 +15,7 @@ abstract class MPMU {
 	/** @var str[] $items Nice names for items */
 	static protected $items = [];
 	/** @const str VERSION plugin version string */
-	const VERSION = "1.1.1";
+	const VERSION = "1.90.0";
 
 	/**
 	 * libcommon library version.  If a version is provided it will check
@@ -157,21 +156,39 @@ abstract class MPMU {
 		return $contents;
 	}
 	/**
-	 * Call a plugin's function
+	 * Call a plugin's function.
+	 *
+	 * If the $plug parameter is given a string, it will simply look for that
+	 * plugin.  If an array is provided, it is assumed to be of the form:
+	 *
+	 *   [ "plugin", "version" ]
+	 *
+	 * So then it will check that the plugin exists, and the version number
+	 * matches according to the rules from **apiCheck**.
+	 *
+	 * Also, if plugin contains an **api** property, it will use that as
+	 * the class for method calling instead.
 	 *
 	 * @param Server $server - pocketmine server instance
-	 * @param str $plug - plugin to call
+	 * @param str|array $plug - plugin to call
 	 * @param str $method - method to call
-	 * @param mixed $default - If the plugin does not exist or it is not enable, this value uis returned
+	 * @param mixed $default - If the plugin does not exist or it is not enable, this value is returned
 	 * @return mixed
 	 */
 	static public function callPlugin($server,$plug,$method,$args,$default = null) {
-		if (($plugin = $server->getPluginManager()->getPlugin($plug)) !== null
-			 && $plugin->isEnabled()) {
+		$v = null;
+		if (is_array($plug)) list($plug,$v) = $plug;
+		if (($plugin = $server->getPluginManager()->getPlugin($plug)) === null
+			 || $plugin->isEnabled()) return $default;
+
+		if ($v !== null && !self::apiCheck($plugin->getDescription()->getVersion(),$v)) return $default;
+		if (property_exists($plugin,"api")) {
+			$fn = [ $plugin->api , $method ];
+		} else {
 			$fn = [ $plugin, $method ];
-			return $fn(...$args);
 		}
-		return $default;
+		if (!is_callable($fn)) return $default;
+		return $fn(...$args);
 	}
 	/**
 	 * Register a command
@@ -180,9 +197,10 @@ abstract class MPMU {
 	 * @param CommandExecutor $executor - object that will be called onCommand
 	 * @param str $cmd - Command name
 	 * @param array $yaml - Additional settings for this command.
+	 * @deprecated Moved to Cmd class
 	 */
 	static public function addCommand($plugin, $executor, $cmd, $yaml) {
-		$newCmd = new PluginCommand($cmd,$plugin);
+		$newCmd = new \pocketmine\command\PluginCommand($cmd,$plugin);
 		if (isset($yaml["description"]))
 			$newCmd->setDescription($yaml["description"]);
 		if (isset($yaml["usage"]))
@@ -208,8 +226,9 @@ abstract class MPMU {
 	}
 	/**
 	 * Unregisters a command
-   * @param Server|Plugin $obj - Access path to server instance
+	 * @param Server|Plugin $obj - Access path to server instance
 	 * @param str $cmd - Command name to remove
+	 * @deprecated Moved to Cmd class
 	 */
 	static public function rmCommand($srv, $cmd) {
 		$cmdMap = $srv->getCommandMap();
@@ -240,6 +259,17 @@ abstract class MPMU {
 			return;
 		}
 		$player->sendPopup($msg);
+	}
+	/**
+	 * Check prefixes
+	 * @param str $txt - input text
+	 * @param str $tok - keyword to test
+	 * @return str|null
+	 */
+	static public function startsWith($txt,$tok) {
+		$ln = strlen($tok);
+		if (strtolower(substr($txt,0,$ln)) != $tok) return null;
+		return trim(substr($txt,$ln));
 	}
 
 
