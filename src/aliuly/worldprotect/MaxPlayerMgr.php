@@ -1,0 +1,46 @@
+<?php
+namespace aliuly\worldprotect;
+
+use pocketmine\plugin\PluginBase as Plugin;
+use pocketmine\event\Listener;
+use pocketmine\event\entity\EntityTeleportEvent;
+use pocketmine\utils\TextFormat;
+use pocketmine\Player;
+
+class MaxPlayerMgr implements Listener {
+	public $owner;
+	public function __construct(Plugin $plugin) {
+		$this->owner = $plugin;
+		$this->owner->getServer()->getPluginManager()->registerEvents($this, $this->owner);
+	}
+	public function onTeleport(EntityTeleportEvent $ev){
+		if ($ev->isCancelled()) return;
+		$et = $ev->getEntity();
+		if (!($et instanceof Player)) return;
+
+		$from = $ev->getFrom()->getLevel();
+		$to = $ev->getTo()->getLevel();
+		if (!$from) {
+			// THIS SHOULDN'T HAPPEN!
+			return;
+		}
+		if (!$to) {
+			// Somebody did not initialize the level properly!
+			// But we return because they do not intent to change worlds
+			return;
+		}
+
+		$from = $from->getName();
+		$to = $to->getName();
+
+		if ($from == $to) return;
+		$max = $this->owner->getPlayerLimit($to);
+		if ($max == 0) return;
+		$np = count($this->owner->getServer()->getLevelByName($to)->getPlayers());
+		if($np >= $max) {
+			$ev->setCancelled();
+			$et->sendMessage("Unable to teleport to $to\nWorld is full");
+			$this->owner->getLogger()->info("$to is FULL");
+		}
+	}
+}

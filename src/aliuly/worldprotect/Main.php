@@ -10,6 +10,7 @@ use pocketmine\Player;
 use pocketmine\utils\TextFormat;
 use pocketmine\utils\Config;
 use pocketmine\math\Vector3;
+use pocketmine\item\Item;
 
 class Main extends PluginBase implements CommandExecutor {
 	const MIN_BORDER = 32;
@@ -19,6 +20,8 @@ class Main extends PluginBase implements CommandExecutor {
 	protected $spam;
 	const SPAM_DELAY = 5;
 	static private $aliases = [
+		"ubab" => "unbreakable",
+		"bab" => "breakable",
 		"unprotect" => "unlock",
 		"open" => "unlock",
 		"notnt" => "noexplode",
@@ -39,12 +42,13 @@ class Main extends PluginBase implements CommandExecutor {
 	public function onEnable(){
 		$defaults = [
 			"settings" => [
-				"player-limits" => true,
+				"player-limits" => false,
 				"world-borders" => true,
 				"world-protect" => true,
 				"per-world-pvp" => true,
 				"motd" => true,
 				"no-explode" => true,
+				"unbreakable" => true,
 			],
 		];
 		if (!is_dir($this->getDataFolder())) mkdir($this->getDataFolder());
@@ -53,16 +57,18 @@ class Main extends PluginBase implements CommandExecutor {
 		if ($cfg["settings"]["player-limits"] &&
 			 $this->getServer()->getPluginManager()->getPlugin("ManyWorlds")==null){
 			$this->getLogger()->info(TextFormat::RED.
-											 "player-limits functionality ONLY works with the ".
+											 "player-limits functionality ".
+											 TextFormat::AQUA."WITHOUT");
+			$this->getLogger()->info(TextFormat::RED."the ".
 											 TextFormat::WHITE."ManyWorlds".
-											 TextFormat::RED." plugin");
-			$cfg["settings"]["player-limits"] = false;
+											 TextFormat::RED." plugin is experimental");
+			//$cfg["settings"]["player-limits"] = false;
 		}
 		$this->listeners = [];
 		$this->listeners["main"] = new WpListener($this);
 		if ($cfg["settings"]["motd"])
 			$this->listeners["motd"] = new WpMotdMgr($this);
-		if ($cfg["settings"]["world-protect"])
+		if ($cfg["settings"]["world-protect"] || $cfg["settings"]["unbreakable"])
 			$this->listeners["protect"] = new WpProtectMgr($this);
 		if ($cfg["settings"]["world-borders"])
 			$this->listeners["borders"] = new WpBordersMgr($this);
@@ -70,11 +76,27 @@ class Main extends PluginBase implements CommandExecutor {
 			$this->listeners["pvp"] = new WpPvpMgr($this);
 		if ($cfg["settings"]["no-explode"])
 			$this->listeners["no-explode"] = new NoExplodeMgr($this);
+		if ($cfg["settings"]["player-limits"])
+			$this->listeners["player-limits"] = new MaxPlayerMgr($this);
 
 		$this->settings = $cfg["settings"];
 
 		$this->wcfg = [];
 		$this->spam = [];
+	}
+	protected function wpPvpMode($level) {
+		if (isset($this->wcfg[$level]["pvp"])) {
+			$x = $this->wcfg[$level]["pvp"];
+			echo __METHOD__.",".__LINE__."-$x\n";
+			if ($x === "spawn") {
+				return TextFormat::YELLOW."spawn";
+			} elseif ($x) {
+				return TextFormat::RED."ON";
+			} else {
+				return TextFormat::GREEN."OFF";
+			}
+		}
+		return TextFormat::RED."ON";
 	}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -122,13 +144,30 @@ class Main extends PluginBase implements CommandExecutor {
 		if (is_array($this->wcfg[$level]["motd"])) {
 			$ticks = 10;
 			foreach ($this->wcfg[$level]["motd"] as $ln) {
-				getServer()->getScheduler()->scheduleDelayedTask(new CallbackTask([$player,"sendMessage"],[$ln]),$ticks);
+				$this->getServer()->getScheduler()->scheduleDelayedTask(new PluginCallbackTask($this,[$player,"sendMessage"],[$ln]),$ticks);
 				$ticks += 10;
 			}
 		} else {
 			$player->sendMessage($this->wcfg[$level]["motd"]);
 		}
 	}
+	//
+	// Unbreakable
+	//
+	public function checkUnbreakable($pname,$level,$blkid) {
+		if (!isset($this->wcfg[$level]["ubab"])) return false;
+		if (!count($this->wcfg[$level]["ubab"])) return false;
+		// Check if user is in auth list...
+		if (isset($this->wcfg[$level]["auth"])
+			 && count($this->wcfg[$level]["auth"])
+			 && isset($this->wcfg[$level]["auth"][$pname])) return false;
+		$player = $this->getServer()->getPlayer($pname);
+		if ($player && $player->hasPermission("wp.cmd.protect.auth"))
+			return false;
+		if (isset($this->wcfg[$level]["ubab"][$blkid])) return true;
+		return false;
+	}
+
 	//
 	// World protect
 	//
@@ -163,8 +202,17 @@ class Main extends PluginBase implements CommandExecutor {
 	//
 	// PvP callback
 	//
-	public function checkPvP($level) {
+	public function checkPvP($level,$x,$y,$z) {
 		if (!isset($this->wcfg[$level]["pvp"])) return true;
+		if ($this->wcfg[$level]["pvp"] === "spawn") {
+			// Check spawn position
+			$lv = $this->getServer()->getLevelByName($level);
+			if (!$lv) return true;
+			$sp = $lv->getSpawnLocation();
+			$dist = $sp->distance(new Vector3($x,$y,$z));
+			if ($dist < $this->getServer()->getSpawnRadius()) return false;
+			return true;
+		}
 		return $this->wcfg[$level]["pvp"];
 	}
 	//
@@ -220,6 +268,11 @@ class Main extends PluginBase implements CommandExecutor {
 						case "rm":
 							if (!$this->access($sender,"wp.cmd.addrm")) return false;
 							return $this->worldProtectRm($sender,$args);
+						case "unbreakable":
+						case "breakable":
+							if (!$this->access($sender,"wp.cmd.unbreakable")) return false;
+							if (!$this->settings["unbreakable"]) return false;
+							return $this->worldUBAB($sender,$scmd,$args);
 						case "unlock":
 						case "lock":
 						case "protect":
@@ -248,6 +301,18 @@ class Main extends PluginBase implements CommandExecutor {
 							return $this->worldMotdCmd($sender,$args);
 						case "help":
 							return $this->helpCmd($sender,$args);
+						case "ls":
+							if (count($args) == 0 ||
+								 (count($args) == 1 && is_numeric($args[0]))) {
+								return $this->wpList($sender,$args);
+							}
+						case "ld":
+							// These commands actually come from ManyWorlds...
+							$pm = $this->getServer()->getPluginManager()->getPlugin("ManyWorlds");
+							if ($pm) {
+								array_unshift($args,$scmd);
+								return $pm->onCommand($sender,$cmd,$label,$args);
+							}
 						default:
 							$sender->sendMessage(TextFormat::RED."Unknown sub command: ".
 														TextFormat::RESET.$scmd);
@@ -278,13 +343,18 @@ class Main extends PluginBase implements CommandExecutor {
 			"unlock" => ["[level]","Unprotects a world"],
 			"lock"=>["[level]","Locked.  Nobody (including op) can build"],
 			"protect"=>["[level]","Only authorized people can build"],
-			"pvp"=>["[level] [on|off]","Enable|disable pvp"],
+			"pvp"=>["[level] [on|off|spawn]","Enable|disable pvp"],
 			"noexplode" =>["[level] [off|world|spawn]",
 								"Stop explosions in world or spawn area"],
 			"border" => ["[level] [x1 z1 x2 z2|none]",
 							 "Creates a border in [level] defined by x1,z1 to x2,z2"],
 			"max" => ["[level] [value]",
 						 "Limits the number of players in a world to [value] use 0 or -1 to remove limits"],
+			"unbreakable" => [ "[level] <id> <id>",
+									 "Sets blocks to unbreakable status" ],
+			"breakable" =>  [ "[level] <id> <id>",
+									 "Remove blocks from unbreakable status" ],
+
 		];
 		if (count($args)) {
 			foreach ($args as $c) {
@@ -309,7 +379,56 @@ class Main extends PluginBase implements CommandExecutor {
 		}
 		return true;
 	}
-
+	private function attrList($wcfg) {
+		$attr = [];
+		if (isset($wcfg["motd"])) {
+			$attr[] = "motd";
+		}
+		if (isset($wcfg["protect"])) $attr[] = $wcfg["protect"];
+		if (isset($wcfg["pvp"])) {
+			if ($wcfg["pvp"] === "spawn") {
+				$attr[] = "pvp:spawn";
+			} elseif ($wcfg["pvp"]) {
+				$attr[] = "pvp:on";
+			} else {
+				$attr[] = "pvp:off";
+			}
+		}
+		if (isset($wcfg["no-explode"]))
+			$attr[] = "notnt:".$wcfg["no-explode"];
+		if (isset($wcfg["border"])) $attr[] = "border";
+		if (isset($wcfg["auth"]))
+			$attr[] = "auth(".count($wcfg["auth"]).")";
+		return $attr;
+	}
+	private function wpList(CommandSender $c,$args) {
+		$dir = $this->getServer()->getDataPath(). "worlds";
+		if (!is_dir($dir)) {
+			$sender->sendMessage("[WP] Missing path $dir");
+			return true;
+		}
+		$dh = opendir($dir);
+		if (!$dh) return false;
+		while (($file = readdir($dh)) !== false) {
+			if ($file == '.' || $file == '..') continue;
+			if (!$this->getServer()->isLevelGenerated($file)) continue;
+			$attrs = [];
+			if (isset($this->wcfg[$file])) {
+				$attrs = $this->attrList($this->wcfg[$file]);
+			} else {
+				$f = "$dir/$file/wpcfg.yml";
+				if (is_file($f)) {
+					$attrs=$this->attrList((new Config($f,Config::YAML))->getAll());
+				}
+			}
+			$txt = $file;
+			if (count($attrs)) {
+				$txt.=" (".implode(", ",$attrs).")";
+			}
+			$c->sendMessage($txt);
+		}
+		return true;
+	}
 	private function motdCmd(CommandSender $sender,$args) {
 		if (count($args) == 0) {
 			if (!$this->inGame($sender)) return true;
@@ -396,6 +515,48 @@ class Main extends PluginBase implements CommandExecutor {
 		$sender->sendMessage("[WP] $user removed from $level's authorized list");
 		if ($player)
 			$player->sendMessage("[WP] You have been removed from $level's authorized list");
+		return true;
+	}
+	//
+	// Unbreakable blocks
+	//
+	private function worldUBAB(CommandSender $sender,$mode,$args) {
+		if (count($args) == 0) return false;
+		if ($this->getServer()->isLevelGenerated($args[0])) {
+			$level = array_shift($args);
+		} else {
+			if (!$this->inGame($sender)) return true;
+			$level = $sender->getLevel()->getName();
+		}
+		if (!$this->doLoadWorldConfig($sender,$level)) return true;
+		if (!$this->isAuth($sender,$level)) return true;
+		if(!count($args)) {
+			if(isset($this->wcfg[$level]["ubab"])) {
+				$lst = "";
+				foreach ($this->wcfg[$level]["ubab"] as $b) {
+					$lst .= (strlen($lst)>0 ? ", " : "").$b;
+				}
+				$sender->sendMessage("Unbreakables(".
+											count($this->wcfg[$level]["ubab"])."): ".
+											$lst);
+			} else {
+				$sender->sendMessage("No unbreakable blocks in $level");
+			}
+			return true;
+		}
+		if ($mode == "breakable") {
+			foreach ($args as $i) {
+				$item = Item::fromString($i);
+				unset($this->wcfg[$level]["ubab"][$item->getId()]);
+			}
+		} else {
+			foreach ($args as $i) {
+				$item = Item::fromString($i);
+				if ($item->getId() == Item::AIR) continue;
+				$this->wcfg[$level]["ubab"][$item->getId()] = $i."(".$item->getId().")";
+			}
+		}
+		$this->saveWorldConfig($level);
 		return true;
 	}
 	//
@@ -493,7 +654,9 @@ class Main extends PluginBase implements CommandExecutor {
 			$level = $sender->getLevel()->getName();
 			$mode = "show";
 		} elseif (count($args) == 1) {
-			if (strtolower($args[0]) == "on" || strtolower($args[0]) == "off") {
+			if (strtolower($args[0]) == "on" ||
+				 strtolower($args[0]) == "off" ||
+				 strtolower($args[0]) == "spawn") {
 				if (!$this->inGame($sender)) return true;
 				$mode = strtolower($args[0]);
 				$level = $sender->getLevel()->getName();
@@ -510,20 +673,27 @@ class Main extends PluginBase implements CommandExecutor {
 		if (!$this->doLoadWorldConfig($sender,$level)) return true;
 		if ($mode == "show") {
 			$sender->sendMessage("PvP status for $level is ".
-										($this->checkPvP($level) ?
-										 TextFormat::RED."ON" :
-										 TextFormat::GREEN."OFF"));
+										$this->wpPvpMode($level));
 			return true;
 		}
 		if (!$this->isAuth($sender,$level)) return true;
 		if ($mode == "on") {
-			if ($this->checkPvP($level)) {
+			if (!isset($this->wcfg[$level]["pvp"]) ||
+				 $this->wcfg[$level]["pvp"] === true) {
 				$sender->sendMessage("PvP status unchanged");
 				return true;
 			}
 			$this->wcfg[$level]["pvp"] = true;
+		} elseif ($mode == "spawn") {
+			if (isset($this->wcfg[$level]["pvp"]) &&
+				 $this->wcfg[$level]["pvp"] === "spawn") {
+				$sender->sendMessage("PvP status unchanged");
+				return true;
+			}
+			$this->wcfg[$level]["pvp"] = "spawn";
 		} else {
-			if (!$this->checkPvP($level)) {
+			if (isset($this->wcfg[$level]["pvp"]) &&
+				 $this->wcfg[$level]["pvp"] == false) {
 				$sender->sendMessage("PvP status unchanged");
 				return true;
 			}
@@ -536,6 +706,14 @@ class Main extends PluginBase implements CommandExecutor {
 
 	// World borders
 	private function worldBorderCmd(CommandSender $sender,$args) {
+		// [level] [x1 z1 x2 z2]
+		// [level] [number]
+		// [level] [none]
+		// [[x1 z1 x2 z2]
+		// [number]
+		// [none]
+		//
+
 		if (count($args) == 4) {
 			if (!$this->inGame($sender)) return true;
 			$level = $sender->getLevel()->getName();
@@ -550,16 +728,36 @@ class Main extends PluginBase implements CommandExecutor {
 			} else {
 				$level = array_shift($args);
 			}
+		} elseif (count($args) == 0) {
+			if (!$this->inGame($sender)) return false;
+			$level = $sender->getLevel()->getName();
 		} else {
 			return $this->helpCmd($sender,["border"]);
 		}
 		if (!$this->doLoadWorldConfig($sender,$level)) return true;
 		if (count($args) == 0) {
+			if(!isset($this->wcfg[$level]["border"])) {
+				$sender->sendMessage("[WP] No border for $level");
+				return true;
+			}
 			list($x1,$z1,$x2,$z2) = $this->wcfg[$level]["border"];
 			$sender->sendMessage("[WP] Border for $level is ($x1,$z1)-($x2,$z2)");
 			return true;
 		}
 		if (!$this->isAuth($sender,$level)) return true;
+		if (count($args) == 1 && is_numeric($args[0])) {
+			// Range was given...
+			$l = $this->getServer()->getLevelByName($level);
+			if ($l == null) {
+				$sender->sendMessage("[WP] Unable to load $level");
+				return true;
+			}
+			$range = intval($args[0]);
+			$pos = $l->getSpawnLocation();
+			$args = [ $pos->getX() - $range, $pos->getZ() - $range,
+						 $pos->getX() + $range, $pos->getZ() + $range ];
+		}
+
 		if (count($args) == 4) {
 			list($x1,$z1,$x2,$z2) = $args;
 			if ($x1 > $x2) list($x1,$x2) = [$x2,$x1];
@@ -570,6 +768,7 @@ class Main extends PluginBase implements CommandExecutor {
 			}
 			$this->wcfg[$level]["border"] = [$x1,$z1,$x2,$z2];
 		} else {
+
 			if (!isset($this->wcfg[$level]["border"])) {
 				$sender->sendMessage("[WP] No border for $level currently");
 				return true;
@@ -695,30 +894,26 @@ class Main extends PluginBase implements CommandExecutor {
 			}
 		}
 		if (isset($this->wcfg[$level]["protect"]))
-			$txt[] = "Protect Status:  ".$this->wcfg[$level]["protect"];
-		if ($this->checkPvP($level)) {
-			$txt[] = "PvP: ".TextFormat::RED."ON";
-		} else {
-			$txt[] = "PvP: ".TextFormat::GREEN."OFF";
-		}
+			$txt[] = TextFormat::AQUA."Protect Status:  ".
+					 TextFormat::WHITE.$this->wcfg[$level]["protect"];
+		$txt[] = TextFormat::AQUA."PvP: ".$this->wpPvpMode($level);
 		if (isset($this->wcfg[$level]["no-explode"])) {
 			if ($this->wcfg[$level]["no-explode"] == "world") {
-				$txt[] = "NoExplode: ".TextFormat::GREEN."world";
+				$txt[] = TextFormat::AQUA."NoExplode: ".TextFormat::GREEN."world";
 			} elseif ($this->wcfg[$level]["no-explode"] == "spawn") {
-				$txt[] = "NoExplode: ".TextFormat::YELLOW."spawn";
+				$txt[] = TextFormat::AQUA."NoExplode: ".TextFormat::YELLOW."spawn";
 			} else {
-				$txt[]= "NoExplode: ".TextFormat::RED.$this->wcfg[$level]["no-explode"];
+				$txt[]= TextFormat::AQUA."NoExplode: ".TextFormat::RED.$this->wcfg[$level]["no-explode"];
 			}
 		}
 		if (isset($this->wcfg[$level]["border"])) {
-			$txt[] = "World Borders:".implode(",",$this->wcfg[$level]["border"]);
-		}
-		if (isset($this->wcfg[$level]["max-players"])) {
-			$txt[] = "Max-Players: ".$this->wcfg[$level]["max-players"];
+			$txt[] = TextFormat::AQUA."World Borders:".
+					 TextFormat::WHITE.implode(",",$this->wcfg[$level]["border"]);
 		}
 		if (isset($this->wcfg[$level]["auth"]) && count($this->wcfg[$level]["auth"])) {
-			$txt[] = "Auth-List(".count($this->wcfg[$level]["auth"])."):".
-					 implode(", ",$this->wcfg[$level]["auth"]);
+			$txt[] = TextFormat::AQUA.
+					 "Auth-List(".count($this->wcfg[$level]["auth"])."):".
+					 TextFormat::WHITE.implode(", ",$this->wcfg[$level]["auth"]);
 		}
 		return $txt;
 	}

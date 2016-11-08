@@ -5,7 +5,7 @@ softdepend: [ManyWorlds]
 
 name: WorldProtect
 description: protect worlds from griefers, pvp, limits and borders
-version: 1.1.1
+version: 1.2.4
 author: aliuly
 
 commands:
@@ -50,3 +50,6 @@ permissions:
     wp.cmd.addrm:
         default: op
         description: "Allow modifying the auth list"
+    wp.cmd.unbreakable:
+        default: op
+        description: "Modify unbreakable block list"

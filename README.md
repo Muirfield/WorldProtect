@@ -29,13 +29,14 @@ Basic Usage:
 * /wp unprotect|unlock [level]
 * /wp lock [level]
 * /wp protect [level]
-* /wp pvp [level] [on|off]
+* /wp pvp [level] [on|off|spawn]
 * /wp noexplode [level] [off|world|spawn]
 * /wp border [level] [x1 z1 x2 z2|none]
 * /wp max [level] [count]
 * /wp add [level] *player*
 * /wp rm [level] *player*
 * /wp motd [level] [text]
+* /wp unbreakable [level] [id id id]
 
 Documentation
 -------------
@@ -54,10 +55,8 @@ It is able to:
 * Show a text file when players enter a world.  To explain players
   what is allowed (or not allowed) in specific worlds.  For example
   you could warn players when they are entering a PvP world.
+* Create unbreakable blocks.
 
-Note that limiting players in a world is only supported by
-[ManyWorlds](http://forums.pocketmine.net/plugins/manyworlds.1042/)
-and any plugin that uses ManyWorlds teleport functionality.
 
 ### Commands:
 
@@ -87,9 +86,10 @@ Protect:
 
 Per-world PvP:
 
-* wp pvp [level] [on|off]  
+* wp pvp [level] [on|off|spawn]  
   If nothing is specified it will show the PvP status of the current
-  level.  Otherwise PvP will either be activated|de-activated.
+  level.  Otherwise PvP will either be activated|de-activated.  If set
+  to `spawn`, PvP is turned off in the spawn area of this world.
 
 No Explode:
 
@@ -123,6 +123,13 @@ Access to these commands is controlled by standard PocketMine
 permission system.  When a world's `auth` list is defined, access to
 these commands are restricted to the people in the `auth` list.
 
+Unbreakable blocks:
+
+* wp unbreakable [level] [id ...]  
+  Will add the *id* to the list of unbreakable blocks for this world.
+* wp breakable [level] [id ...]  
+  Will remove the *id* from the list of unbreakable blocks for this world.
+
 ### Configuration
 
 In the plugin's config.yml file you can have:
@@ -134,13 +141,9 @@ In the plugin's config.yml file you can have:
 	  per-world-pvp: true
 	  motd: true
 	  no-explode: true
+	  unbreakable: true
 
-* player-limits: Enables the per world player limits
-* world-borders: Enables the world border module
-* world-protect: Enables the anti-griefing module
-* per-world-pvp: Enables per world PvP functionality
-* no-explode: Enables explosion protection
-* motd : Enable per world MOTD text
+Control what modules are active.
 
 ### Permission Nodes:
 
@@ -153,30 +156,44 @@ In the plugin's config.yml file you can have:
 * wp.cmd.limit - Allow control to limit functionality
 * wp.cmd.wpmotd - Allow editing the motd
 * wp.cmd.noexplode - no explode command access
+* wp.cmd.addrm - Allow modifying the auth list
+* wp.cmd.unbreakable - Allow modifying the unbreakable block list
 
 ### ManyWorlds
 
-The World Limit functionality requires the use of ManyWorlds teleport.
-Also, if ManyWorlds is installed, the
+If ManyWorlds is installed, the
 
     /mw ls [level]
 
-Will show additional information.
+Will show additional information.  Also, you can enter:
+
+    /wp ls [level]
+
+To get world details.
 
 ### Issues
 
 * World names can not contain spaces.
-* Placing a sign on worlds that do not allow placing blocks will crash
-  the MCPE client.
-
-### TODO
-
-* Prevent PvP in spawn. pvp spawn
-
 
 Changes
 -------
 
+* 1.2.4: CallbackTask
+  * Removed CallbackTask deprecation warnings
+* 1.2.3: Suggested change
+  * Simpler border setting using a single "range" number
+* 1.2.2: protection overview (un-published)
+  * Added an overview of protected worlds
+* 1.2.1: BugFix
+  * Positions are not configured correctly.
+* 1.2.0: Update
+  * Bugfix in sending motd text
+  * Bugfixes WpProtect
+  * wp ls/ld - will call ManyWorlds.  Needs ManyWorlds v1.3.2.
+  * Fixed Signs Tiles being left all over...
+  * Added stop PvP in spawn areas
+  * Added Unbreakable blocks
+  * Max players per world should now work *without* ManyWorlds.
 * 1.1.1 : bugfix
   * Fixes bugs reported by [Crash Archive](http://crash.pocketmine.net/search)
 * 1.1.0: no-explode
