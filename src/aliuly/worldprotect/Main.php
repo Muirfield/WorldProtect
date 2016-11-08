@@ -43,8 +43,8 @@ class Main extends BasicPlugin implements CommandExecutor {
 			"no-explode" => [ "NoExplodeMgr", false ],
 			"unbreakable" => [ "Unbreakable", false ],
 			"banitem" => [ "BanItem", true ],
-			"gamemode" => [ "GmMgr", true ],
-			"gm-save-inv" => [ "GmSaveInv", true ],
+			"gamemode" => [ "GmMgr", false ],
+			"gm-save-inv" => [ "GmSaveInv", false ],
 		], [
 			"version" => $this->getDescription()->getVersion(),
 			"motd" => WpMotdMgr::defaults(),
@@ -267,5 +267,13 @@ class Main extends BasicPlugin implements CommandExecutor {
 		if (time() - $time < self::SPAM_DELAY && $otxt == $txt) return;
 		$this->setState("spam",$pl,[time(),$txt]);
 		$pl->sendMessage($txt);
+	}
+	/**
+	 * @API
+	 */
+	public function getMaxPlayers($world){
+		if (isset($this->modules["max-players"]))
+			return $this->modules["max-players"]->getMaxPlayers($world);
+		return null;
 	}
 }
