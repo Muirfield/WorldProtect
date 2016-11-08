@@ -21,6 +21,7 @@ Features:
 * Create limits in your limitless worlds
 * Limit the number of players in a world
 * Show a text file when players enter a world
+* Stops explosions from happening in a world
 
 Basic Usage:
 
@@ -29,6 +30,7 @@ Basic Usage:
 * /wp lock [level]
 * /wp protect [level]
 * /wp pvp [level] [on|off]
+* /wp noexplode [level] [off|world|spawn]
 * /wp border [level] [x1 z1 x2 z2|none]
 * /wp max [level] [count]
 * /wp add [level] *player*
@@ -89,6 +91,14 @@ Per-world PvP:
   If nothing is specified it will show the PvP status of the current
   level.  Otherwise PvP will either be activated|de-activated.
 
+No Explode:
+
+* /wp noexplode [level] [off|world|spawn]
+  If nothing is specified it will show the NoExplode status of the current
+  level. If off, allows explosions (default).  If world, explosions are
+  prevented in the whole world.  If spawn, explosions are prevented in
+  the spawn area.
+
 World borders:
 
 * wp border [level] [x1 z1 x2 z2|none]  
@@ -123,11 +133,13 @@ In the plugin's config.yml file you can have:
 	  world-protect: true
 	  per-world-pvp: true
 	  motd: true
+	  no-explode: true
 
 * player-limits: Enables the per world player limits
 * world-borders: Enables the world border module
 * world-protect: Enables the anti-griefing module
 * per-world-pvp: Enables per world PvP functionality
+* no-explode: Enables explosion protection
 * motd : Enable per world MOTD text
 
 ### Permission Nodes:
@@ -140,6 +152,7 @@ In the plugin's config.yml file you can have:
 * wp.cmd.pvp - Allow PvP controls
 * wp.cmd.limit - Allow control to limit functionality
 * wp.cmd.wpmotd - Allow editing the motd
+* wp.cmd.noexplode - no explode command access
 
 ### ManyWorlds
 
@@ -150,16 +163,23 @@ Also, if ManyWorlds is installed, the
 
 Will show additional information.
 
-Issues
-------
+### Issues
 
 * World names can not contain spaces.
 * Placing a sign on worlds that do not allow placing blocks will crash
   the MCPE client.
 
+### TODO
+
+* Prevent PvP in spawn. pvp spawn
+
+
 Changes
 -------
 
+* 1.1.0: no-explode
+  * Added NoExplode functionality
+  * Fixed stupid typo about /mw subcommands
 * 1.0.0 : Initial release
 
 Copyright
